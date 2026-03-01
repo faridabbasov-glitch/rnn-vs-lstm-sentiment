@@ -29,7 +29,7 @@ word_index["<PAD>"]     = 0
 word_index["<START>"]   = 1
 word_index["<UNK>"]     = 2
 word_index["<UNUSED>"]  = 3
-print("✔  Word index ready.")
+print("Word index ready.")
 
 
 def text_to_sequence(text: str) -> np.ndarray:
@@ -86,4 +86,5 @@ def health():
 
 
 if __name__ == "__main__":
+
     app.run(debug=True, host="0.0.0.0", port=5000)
