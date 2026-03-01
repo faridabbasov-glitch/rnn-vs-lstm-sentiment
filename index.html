@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SentimentAI - RNN vs LSTM Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@300;400;500&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --imdb-black:   #121212;
+  --imdb-dark:    #1a1a1a;
+  --imdb-card:    #1f1f1f;
+  --imdb-border:  #2a2a2a;
+  --imdb-yellow:  #f5c518;
+  --imdb-yellow2: #e6b800;
+  --text-primary: #ffffff;
+  --text-secondary: #aaaaaa;
+  --text-muted:   #666666;
+  --positive:     #46d369;
+  --negative:     #f85149;
+  --rnn-color:    #e87c2a;
+  --lstm-color:   #3d8ef8;
+  --font-display: 'Oswald', sans-serif;
+  --font-body:    'Roboto', sans-serif;
+  --font-cond:    'Roboto Condensed', sans-serif;
+}
+
+html { font-size: 16px; }
+body {
+  background: var(--imdb-black);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+nav {
+  background: #000;
+  border-bottom: 1px solid var(--imdb-border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-logo {
+  background: var(--imdb-yellow);
+  color: #000;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  letter-spacing: .03em;
+  border-radius: 3px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.nav-title {
+  font-family: var(--font-cond);
+  font-size: .85rem;
+  color: var(--text-secondary);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--imdb-card);
+  border: 1px solid var(--imdb-border);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-family: var(--font-cond);
+  font-size: .72rem;
+  color: var(--text-secondary);
+  letter-spacing: .05em;
+}
+
+.hero {
+  background: linear-gradient(180deg, #1a1007 0%, var(--imdb-black) 100%);
+  border-bottom: 1px solid var(--imdb-border);
+  padding: 48px 24px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(245,197,24,.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-cond);
+  font-size: .72rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--imdb-yellow);
+  margin-bottom: 12px;
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 600;
+  letter-spacing: .04em;
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.hero h1 span { color: var(--imdb-yellow); }
+
+.hero-sub {
+  font-family: var(--font-body);
+  font-size: .9rem;
+  color: var(--text-secondary);
+  max-width: 520px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.model-strip {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.model-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--imdb-card);
+  border: 1px solid var(--imdb-border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-family: var(--font-cond);
+  font-size: .78rem;
+  letter-spacing: .06em;
+}
+
+.model-chip .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip-rnn .dot  { background: var(--rnn-color); }
+.chip-lstm .dot { background: var(--lstm-color); }
+
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+.input-card {
+  background: var(--imdb-card);
+  border: 1px solid var(--imdb-border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 32px;
+  animation: fadeUp .5s ease both;
+}
+
+.input-card-header {
+  background: var(--imdb-dark);
+  border-bottom: 1px solid var(--imdb-border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-card-header .icon {
+  width: 20px; height: 20px;
+  background: var(--imdb-yellow);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .65rem;
+  color: #000;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.input-card-header h2 {
+  font-family: var(--font-cond);
+  font-size: .85rem;
+  font-weight: 400;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.input-card-body { padding: 20px; }
+
+textarea {
+  width: 100%;
+  min-height: 140px;
+  background: #0d0d0d;
+  border: 1px solid var(--imdb-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: .95rem;
+  line-height: 1.65;
+  padding: 14px 16px;
+  resize: vertical;
+  outline: none;
+  transition: border-color .2s;
+  caret-color: var(--imdb-yellow);
+}
+
+textarea::placeholder { color: var(--text-muted); font-style: italic; }
+textarea:focus { border-color: var(--imdb-yellow); }
+
+.input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.char-count {
+  font-family: var(--font-cond);
+  font-size: .75rem;
+  color: var(--text-muted);
+  letter-spacing: .05em;
+}
+
+#analyzeBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--imdb-yellow);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  padding: 11px 28px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: background .15s, transform .15s;
+  position: relative;
+  overflow: hidden;
+}
+
+#analyzeBtn:hover { background: var(--imdb-yellow2); transform: translateY(-1px); }
+#analyzeBtn:active { transform: translateY(0); }
+#analyzeBtn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,0,0,.25);
+  border-top-color: #000;
+  border-radius: 50%;
+  display: none;
+  animation: spin .7s linear infinite;
+}
+
+.loading .spinner  { display: block; }
+.loading .btn-text { display: none; }
+
+.results-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--imdb-border);
+  opacity: 0;
+  transition: opacity .3s;
+}
+
+.results-header.visible { opacity: 1; }
+
+.results-header h3 {
+  font-family: var(--font-cond);
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.results-divider {
+  flex: 1;
+  height: 1px;
+  background: var(--imdb-border);
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .results-grid { grid-template-columns: 1fr; }
+}
+
+.result-card {
+  background: var(--imdb-card);
+  border: 1px solid var(--imdb-border);
+  border-radius: 6px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .4s ease, transform .4s ease;
+}
+
+.result-card.visible { opacity: 1; transform: translateY(0); }
+.result-card:nth-child(2) { transition-delay: .08s; }
+
+.card-rnn  { border-top: 3px solid var(--rnn-color); }
+.card-lstm { border-top: 3px solid var(--lstm-color); }
+
+.card-header {
+  background: var(--imdb-dark);
+  border-bottom: 1px solid var(--imdb-border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-model-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: .05em;
+  color: var(--text-primary);
+}
+
+.card-model-tag {
+  font-family: var(--font-cond);
+  font-size: .65rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-weight: 400;
+}
+
+.card-rnn  .card-model-tag { background: rgba(232,124,42,.15); color: var(--rnn-color);  border: 1px solid rgba(232,124,42,.3); }
+.card-lstm .card-model-tag { background: rgba(61,142,248,.15); color: var(--lstm-color); border: 1px solid rgba(61,142,248,.3); }
+
+.card-body { padding: 20px 16px; }
+
+.rating-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rating-circle {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--imdb-border);
+  flex-shrink: 0;
+  transition: border-color .5s;
+}
+
+.rating-circle.positive { border-color: var(--positive); }
+.rating-circle.negative { border-color: var(--negative); }
+
+.rating-score {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.rating-max {
+  font-family: var(--font-cond);
+  font-size: .6rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.rating-info { flex: 1; }
+
+.verdict-label {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: .04em;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.verdict-label.positive { color: var(--positive); }
+.verdict-label.negative { color: var(--negative); }
+
+.verdict-sub {
+  font-family: var(--font-cond);
+  font-size: .72rem;
+  color: var(--text-muted);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.bar-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-cond);
+  font-size: .7rem;
+  color: var(--text-muted);
+  letter-spacing: .05em;
+  margin-bottom: 6px;
+}
+
+.bar-track {
+  width: 100%;
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 1s cubic-bezier(.17,.67,.35,1.2);
+}
+
+.card-rnn  .bar-fill { background: var(--rnn-color); }
+.card-lstm .bar-fill { background: var(--lstm-color); }
+
+.comparison-banner {
+  margin-top: 16px;
+  background: var(--imdb-card);
+  border: 1px solid var(--imdb-border);
+  border-left: 3px solid var(--imdb-yellow);
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-family: var(--font-cond);
+  font-size: .8rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  display: none;
+  animation: fadeUp .4s ease both;
+}
+
+.comparison-banner.visible { display: block; }
+.comparison-banner strong { color: var(--imdb-yellow); }
+
+.placeholder {
+  grid-column: 1 / -1;
+  padding: 56px 32px;
+  text-align: center;
+  border: 1px dashed var(--imdb-border);
+  border-radius: 6px;
+}
+
+.placeholder.hidden { display: none; }
+
+.placeholder-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  opacity: .3;
+}
+
+.placeholder p {
+  font-family: var(--font-cond);
+  font-size: .78rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.error-banner {
+  grid-column: 1 / -1;
+  background: rgba(248,81,73,.07);
+  border: 1px solid rgba(248,81,73,.25);
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-family: var(--font-cond);
+  font-size: .8rem;
+  color: var(--negative);
+  display: none;
+}
+
+.error-banner.visible { display: block; }
+
+footer {
+  border-top: 1px solid var(--imdb-border);
+  padding: 20px 24px;
+  text-align: center;
+  font-family: var(--font-cond);
+  font-size: .72rem;
+  color: var(--text-muted);
+  letter-spacing: .06em;
+}
+
+footer span { color: var(--imdb-yellow); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo">SAI</span>
+  <span class="nav-title">Sentiment Analyzer</span>
+  <span class="nav-badge">RNN vs LSTM · IMDB Dataset</span>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Deep Learning · Natural Language Processing</div>
+  <h1>Movie Review<br/><span>Sentiment Analysis</span></h1>
+  <p class="hero-sub">Compare how a SimpleRNN and LSTM model interpret the emotional tone of any movie review in real time.</p>
+  <div class="model-strip">
+    <div class="model-chip chip-rnn">
+      <div class="dot"></div>
+      SimpleRNN · 84.35% Accuracy
+    </div>
+    <div class="model-chip chip-lstm">
+      <div class="dot"></div>
+      LSTM · 85.44% Accuracy
+    </div>
+  </div>
+</div>
+
+<main class="main">
+
+  <div class="input-card">
+    <div class="input-card-header">
+      <div class="icon">✎</div>
+      <h2>Write a Review</h2>
+    </div>
+    <div class="input-card-body">
+      <textarea
+        id="reviewText"
+        placeholder="e.g. An absolute masterpiece. Every frame is charged with emotion, and the performances are nothing short of brilliant…"
+        rows="5"
+      ></textarea>
+      <div class="input-footer">
+        <span class="char-count" id="charCount">0 characters</span>
+        <button id="analyzeBtn" type="button">
+          <div class="spinner"></div>
+          <span class="btn-text">▶ Analyze Sentiment</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="results-header" id="resultsHeader">
+    <h3>Analysis Results</h3>
+    <div class="results-divider"></div>
+  </div>
+
+  <div class="results-grid" id="resultsGrid">
+
+    <div class="placeholder" id="placeholder">
+      <div class="placeholder-icon">🎬</div>
+      <p>Enter a review above to begin analysis</p>
+    </div>
+
+    <div class="error-banner" id="errorBanner"></div>
+
+    <div class="result-card card-rnn" id="rnnCard">
+      <div class="card-header">
+        <span class="card-model-name">Simple RNN</span>
+        <span class="card-model-tag">Model A</span>
+      </div>
+      <div class="card-body">
+        <div class="rating-row">
+          <div class="rating-circle" id="rnnCircle">
+            <span class="rating-score" id="rnnScore">—</span>
+            <span class="rating-max">/1.0</span>
+          </div>
+          <div class="rating-info">
+            <div class="verdict-label" id="rnnVerdict">—</div>
+            <div class="verdict-sub">Sentiment prediction</div>
+          </div>
+        </div>
+        <div class="bar-label-row">
+          <span>Confidence</span>
+          <span id="rnnPct">—</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="rnnBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-card card-lstm" id="lstmCard">
+      <div class="card-header">
+        <span class="card-model-name">LSTM</span>
+        <span class="card-model-tag">Model B</span>
+      </div>
+      <div class="card-body">
+        <div class="rating-row">
+          <div class="rating-circle" id="lstmCircle">
+            <span class="rating-score" id="lstmScore">—</span>
+            <span class="rating-max">/1.0</span>
+          </div>
+          <div class="rating-info">
+            <div class="verdict-label" id="lstmVerdict">—</div>
+            <div class="verdict-sub">Sentiment prediction</div>
+          </div>
+        </div>
+        <div class="bar-label-row">
+          <span>Confidence</span>
+          <span id="lstmPct">—</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="lstmBar"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="comparison-banner" id="compBanner"></div>
+
+</main>
+
+<footer>
+  Trained on <span>IMDB 50K Dataset</span> · SimpleRNN 84.35% · LSTM 85.44% · Built with TensorFlow & Flask
+</footer>
+
+<script>
+  const textarea      = document.getElementById('reviewText');
+  const charCount     = document.getElementById('charCount');
+  const btn           = document.getElementById('analyzeBtn');
+  const placeholder   = document.getElementById('placeholder');
+  const errorBanner   = document.getElementById('errorBanner');
+  const resultsHeader = document.getElementById('resultsHeader');
+  const compBanner    = document.getElementById('compBanner');
+  const rnnCard       = document.getElementById('rnnCard');
+  const lstmCard      = document.getElementById('lstmCard');
+
+  textarea.addEventListener('input', () => {
+    charCount.textContent = `${textarea.value.length} characters`;
+  });
+
+  function setLoading(on) {
+    btn.disabled = on;
+    btn.classList.toggle('loading', on);
+  }
+
+  function renderCard(cardEl, circleEl, scoreEl, verdictEl, pctEl, barEl, result) {
+    const pct = Math.round(result.score * 100);
+    const isPos = result.label === 'Positive';
+    scoreEl.textContent  = result.score.toFixed(2);
+    verdictEl.textContent = result.label;
+    verdictEl.className  = `verdict-label ${isPos ? 'positive' : 'negative'}`;
+    circleEl.className   = `rating-circle ${isPos ? 'positive' : 'negative'}`;
+    pctEl.textContent    = `${pct}%`;
+    cardEl.classList.add('visible');
+    setTimeout(() => { barEl.style.width = `${pct}%`; }, 60);
+  }
+
+  function buildComparison(rnn, lstm) {
+    const agree = rnn.label === lstm.label;
+    const diff  = Math.abs(rnn.score - lstm.score).toFixed(3);
+    if (agree) {
+      return `<strong>AGREEMENT</strong> — Both models predict <strong>${rnn.label}</strong> sentiment. Score delta: <strong>${diff}</strong>. LSTM's gating mechanism typically yields more confident scores on complex reviews.`;
+    }
+    return `<strong>DISAGREEMENT</strong> — SimpleRNN predicts <strong>${rnn.label}</strong> while LSTM predicts <strong>${lstm.label}</strong>. Score delta: <strong>${diff}</strong>. This divergence often occurs in reviews with negations or long-range context that LSTM resolves but SimpleRNN misses.`;
+  }
+
+  btn.addEventListener('click', async () => {
+    const text = textarea.value.trim();
+    if (!text) { textarea.focus(); return; }
+
+    setLoading(true);
+    placeholder.classList.add('hidden');
+    errorBanner.classList.remove('visible');
+    rnnCard.classList.remove('visible');
+    lstmCard.classList.remove('visible');
+    compBanner.classList.remove('visible');
+    document.getElementById('rnnBar').style.width  = '0%';
+    document.getElementById('lstmBar').style.width = '0%';
+
+    try {
+      const res  = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      if (!res.ok) { throw new Error(data.error || 'Server error'); }
+
+      resultsHeader.classList.add('visible');
+
+      renderCard(rnnCard,
+        document.getElementById('rnnCircle'),
+        document.getElementById('rnnScore'),
+        document.getElementById('rnnVerdict'),
+        document.getElementById('rnnPct'),
+        document.getElementById('rnnBar'),
+        data.rnn_result
+      );
+
+      renderCard(lstmCard,
+        document.getElementById('lstmCircle'),
+        document.getElementById('lstmScore'),
+        document.getElementById('lstmVerdict'),
+        document.getElementById('lstmPct'),
+        document.getElementById('lstmBar'),
+        data.lstm_result
+      );
+
+      setTimeout(() => {
+        compBanner.innerHTML = buildComparison(data.rnn_result, data.lstm_result);
+        compBanner.classList.add('visible');
+      }, 500);
+
+    } catch (err) {
+      errorBanner.textContent = `⚠  ${err.message || 'Could not reach the server. Make sure app.py is running on port 5000.'}`;
+      errorBanner.classList.add('visible');
+      placeholder.classList.remove('hidden');
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  textarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) btn.click();
+  });
+</script>
+</body>
+</html>
